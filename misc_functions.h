@@ -23,6 +23,13 @@ struct {
 } settings;
 
 typedef struct {
+    int hotkey;
+    radio *station;
+} shortcut;
+
+shortcut shortcuts_list[9];
+
+typedef struct {
     radio *head;
     radio *tail;
     radio *current;
@@ -35,6 +42,7 @@ void add_digit(u8 command);
 
 void print_station_name(radio *station);
 void print_settings();
+void print_list(radio_list *list);
 void change_station(radio *station);
 void poweroff();
 

@@ -1,7 +1,8 @@
 #include "misc_functions.h"
 
 void remote_function(u8 command) {
-    if (settings.poweroff && command != 175)
+    if ((settings.poweroff && command != 175)
+            || command == 0)
         return;
 
     printf("%d\r\n", command);
@@ -45,106 +46,38 @@ void remote_function(u8 command) {
             poweroff();
             break;
         case 127: // 1
+            change_station(shortcuts_list[0].station);
+            break;
         case 191:
+            change_station(shortcuts_list[1].station);
+            break;
         case 63:
+            change_station(shortcuts_list[2].station);
+            break;
         case 223:
+            change_station(shortcuts_list[3].station);
+            break;
         case 95:
+            change_station(shortcuts_list[4].station);
+            break;
         case 159:
+            change_station(shortcuts_list[5].station);
+            break;
         case 31:
+            change_station(shortcuts_list[6].station);
+            break;
         case 239:
+            change_station(shortcuts_list[7].station);
+            break;
         case 111:
+            change_station(shortcuts_list[8].station);
+            break;
         case 255: // 0
-            add_digit(command);
             break;
         default:
             break;
     }
 
-}
-
-unsigned int entered_digits = 0;
-u8 sub_digits = 0;
-bool ready = false;
-
-void invalid_digit() {
-    entered_digits = 0;
-    sub_digits = 0;
-    hd44780_print(" INVALID ");
-}
-
-void valid_digit() {
-    char data[20];
-    hd44780_go_to_line(2);
-    sprintf(data, "%d.%d MHz VALID", entered_digits, sub_digits);
-    entered_digits = 0;
-    sub_digits = 0;
-    u8 i = 0;
-    for (i = 0; i < 2; ++i) {
-        delay_us(TIM3, 1000);
-    }
-    hd44780_go_to_line(2);
-    hd44780_print("            ");
-    hd44780_go_to_line(2);
-}
-
-void add_digit(u8 command) {
-    u8 digit = 0;
-    switch (command) {
-    case 127: // 1
-        digit = 1;
-        break;
-    case 191:
-        digit = 2;
-        break;
-    case 63:
-        digit = 3;
-        break;
-    case 223:
-        digit = 4;
-        break;
-    case 95:
-        digit = 5;
-        break;
-    case 159:
-        digit = 6;
-        break;
-    case 31:
-        digit = 7;
-        break;
-    case 239:
-        digit = 8;
-        break;
-    case 111:
-        digit = 9;
-        break;
-    case 255: // 0
-        digit = 0;
-        break;
-    }
-
-    hd44780_go_to_line(2);
-    u16 temp = entered_digits * 10 + digit;
-
-    if ((digit == 0 || digit == 2 || digit == 3 || digit == 4 || digit == 5 || digit == 6 || digit == 7) && entered_digits == 0) {
-        invalid_digit();
-        return;
-    }
-    if (temp > 870 && temp < 1080) {
-        sub_digits = digit;
-        ready = true;
-    } else if (temp <= 870) {
-        entered_digits = entered_digits * 10 + digit;
-    } else {
-        entered_digits = 0;
-        sub_digits = 0;
-    }
-    char data[16];
-    sprintf(data, "%u.%u MHz      ", entered_digits, sub_digits);
-    hd44780_print(data);
-
-    if (ready) {
-        valid_digit();
-    }
 }
 
 radio* add_radio(char* name, u16 frequency) {
@@ -245,8 +178,8 @@ void change_station(radio *station) {
     rda5807_set_frequency(station->frequency);
 }
 
-void print_list(radio_list *s) {
-    radio *ptr = s->head;
+void print_list(radio_list *list) {
+    radio *ptr = list->head;
     while (ptr) {
         printf("%x %s %d %x %x\r\n", ptr, ptr->name, ptr->frequency, ptr->prev, ptr->next);
         ptr = ptr->next;

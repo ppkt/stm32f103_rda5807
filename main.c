@@ -162,23 +162,43 @@ int main(void)
     stations->tail = 0;
     stations->head = 0;
 
-    radio *default_station = add_radio("Trojka", 994);
-    add_radio("Jedynka", 894);
-    add_radio("RMF FM", 960);
-    add_radio("Radio Krakow", 1016);
-    add_radio("Radio ZET", 1041);
-    add_radio("Radio PLUS", 1061);
-    add_radio("Antyradio", 1013);
-    add_radio("Radio Wawa", 888);
-    add_radio("Rock radio", 1038);
+    radio *s1 = add_radio("Trojka", 994);
+    radio *s2 = add_radio("Jedynka", 894);
+    radio *s3 = add_radio("RMF FM", 960);
+    radio *s4 = add_radio("Radio Krakow", 1016);
+    radio *s5 = add_radio("Radio ZET", 1041);
+    radio *s6 = add_radio("Radio PLUS", 1061);
+    radio *s7 = add_radio("Antyradio", 1013);
+    radio *s8 = add_radio("Radio Wawa", 888);
+    radio *s9 = add_radio("Rock radio", 1038);
     print_list(stations);
+
+    shortcuts_list[0].hotkey = 1;
+    shortcuts_list[0].station = s1;
+    shortcuts_list[1].hotkey = 2;
+    shortcuts_list[1].station = s2;
+    shortcuts_list[2].hotkey = 3;
+    shortcuts_list[2].station = s3;
+    shortcuts_list[3].hotkey = 4;
+    shortcuts_list[3].station = s4;
+    shortcuts_list[4].hotkey = 5;
+    shortcuts_list[4].station = s5;
+    shortcuts_list[5].hotkey = 6;
+    shortcuts_list[5].station = s6;
+    shortcuts_list[6].hotkey = 7;
+    shortcuts_list[6].station = s7;
+    shortcuts_list[7].hotkey = 8;
+    shortcuts_list[7].station = s8;
+    shortcuts_list[8].hotkey = 9;
+    shortcuts_list[8].station = s9;
+
 
     settings.volume = 15;
     settings.boost = false;
     settings.mute = false;
     settings.poweroff = false;
 
-    change_station(default_station);
+    change_station(s1);
 //    rda5807_set_mute(true);
 
     while (1) {

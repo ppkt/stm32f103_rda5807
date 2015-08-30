@@ -171,6 +171,7 @@ int main(void)
     add_radio("Antyradio", 1013);
     add_radio("Radio Wawa", 888);
     add_radio("Rock radio", 1038);
+    print_list(stations);
 
     settings.volume = 15;
     settings.boost = false;

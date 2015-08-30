@@ -148,28 +148,60 @@ void add_digit(u8 command) {
 }
 
 radio* add_radio(char* name, u16 frequency) {
-    radio *station = malloc(sizeof(radio));
-    if (!station) while(1); // Out of memory
+    radio *new_station = malloc(sizeof(radio));
+    if (!new_station) while(1); // Out of memory
 
-    if (stations->head == 0)
-        stations->head = station;
+    new_station->frequency = frequency;
+    new_station->name = strdup(name);
 
-    if (stations->current == 0)
-        stations->current = station;
+    printf("Adding: %s\n\r", name);
 
-    radio *prev_tail = stations->tail;
-    stations->tail = station;
-
-
-    station->frequency = frequency;
-    station->name = strdup(name);
-    station->next = 0;
-    if (prev_tail) {
-        station->prev = prev_tail;
-        prev_tail->next = station;
+    if (stations->head == 0) {
+        new_station->next = 0;
+        new_station->prev = 0;
+        stations->head = new_station;
+        stations->tail = new_station;
+        stations->current = new_station;
+        printf("Done!\r\n");
+        return new_station;
     }
 
-    return station;
+    // Iterate over list to find correct position
+    radio *current_position = stations->head;
+    while (current_position) {
+        // New item will be placed before current position
+        if (current_position->frequency > new_station->frequency) {
+            radio *previous = current_position->prev;
+
+            current_position->prev = new_station;
+            new_station->next = current_position;
+
+            new_station->prev = previous;
+            if (previous) {
+                previous->next = new_station;
+            } else {
+                stations->head = new_station;
+            }
+
+            break;
+        }
+
+        current_position = current_position->next;
+    }
+
+    if (current_position == 0) {
+        radio *prev_tail = stations->tail;
+        stations->tail = new_station;
+        new_station->next = 0;
+
+        if (prev_tail) {
+            new_station->prev = prev_tail;
+            prev_tail->next = new_station;
+        }
+    }
+
+    printf("Done!\r\n");
+    return new_station;
 }
 
 void print_station_name(radio *station) {
@@ -211,6 +243,14 @@ void print_settings() {
 void change_station(radio *station) {
     print_station_name(station);
     rda5807_set_frequency(station->frequency);
+}
+
+void print_list(radio_list *s) {
+    radio *ptr = s->head;
+    while (ptr) {
+        printf("%x %s %d %x %x\r\n", ptr, ptr->name, ptr->frequency, ptr->prev, ptr->next);
+        ptr = ptr->next;
+    }
 }
 
 void poweroff() {

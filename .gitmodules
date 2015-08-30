@@ -1,0 +1,6 @@
+[submodule "common_lib"]
+	path = common_lib
+	url = git@github.com:ppkt/common_lib.git
+[submodule "device_lib"]
+	path = device_lib
+	url = git@github.com:ppkt/device_lib.git

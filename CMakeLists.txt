@@ -14,12 +14,19 @@ INCLUDE_DIRECTORIES(
 
 SET(PROJECT_SOURCES
     main.c
-    stm32f10x_conf.h
+    misc_functions.c
 
     common_lib/utils.c
     common_lib/usart.c
+    common_lib/i2c_dma.c
+
+    device_lib/rda5807.c
+    device_lib/rda5807_tea.c
+    device_lib/hd44780-i2c.c
+    device_lib/ir.c
 
     stdio/printf.c
+    stdio/syscalls.c
 )
 
 INCLUDE_DIRECTORIES(common_lib device_lib stdio)

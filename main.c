@@ -42,10 +42,11 @@ void i2c_search_bus() {
     for (addr = 0x00; addr < 0xFF; ++addr) {
         rx[0] = 0x00;
         //		Status s = I2C_Master_BufferWrite(I2C1, tx, 1, Polling, addr << 1);
-        Status s = I2C_Master_BufferRead(I2C1, rx, 1, Polling, addr);
+        Status s = I2C_Master_BufferRead(I2C1, rx, 1, DMA, addr);
         if (s != Error)
-            printf("%X\r\n", addr);
+            printf("+%X\r\n", addr);
         else {
+            printf("-%X\r\n", addr);
             I2C1->CR1 |= CR1_STOP_Set;
             GPIO_SetBits(GPIOB, GPIO_Pin_6);
             GPIO_SetBits(GPIOB, GPIO_Pin_7);
@@ -153,6 +154,18 @@ int main(void)
 
     printf("Checking Radio\n\r");
     rda5807_init();
+
+//    i2c_search_bus();
+
+    u8 tx[10];
+    tx[0] = 0x00;
+    tx[1] = 0x00;
+    tx[2] = 0xAA;
+//    I2C_Master_BufferWrite(I2C1, tx, 3, Polling, 0x50 << 1);
+
+
+//    I2C_Master_BufferWrite(I2C1, tx, 2, DMA, 0x50 << 1);
+    I2C_Master_BufferRead(I2C1, tx, 1, Polling, 0x50 << 1);
 
     hd44780_init(TIM3);
     hd44780_print("Radio");

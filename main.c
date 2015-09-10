@@ -34,33 +34,6 @@ void NVIC_Configuration(void)
 
 }
 
-void i2c_search_bus() {
-    u8 rx[2] = {0xFF, 0xFF};
-
-    u8 addr = 0x00;
-    printf("Searching I2C bus\r\n");
-    for (addr = 0x00; addr < 0xFF; ++addr) {
-        rx[0] = 0x00;
-        //		Status s = I2C_Master_BufferWrite(I2C1, tx, 1, Polling, addr << 1);
-        Status s = I2C_Master_BufferRead(I2C1, rx, 1, DMA, addr);
-        if (s != Error)
-            printf("+%X\r\n", addr);
-        else {
-            printf("-%X\r\n", addr);
-            I2C1->CR1 |= CR1_STOP_Set;
-            GPIO_SetBits(GPIOB, GPIO_Pin_6);
-            GPIO_SetBits(GPIOB, GPIO_Pin_7);
-        }
-    }
-
-    printf("Searching I2C bus done\r\n");
-}
-
-void SysTick_Handler(void)
-{
-    delay_decrement();
-}
-
 void IR_Init() {
     /* Enable GPIO clock */
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
@@ -133,12 +106,7 @@ void TIM_Init() {
 
 int main(void)
 {
-//    unsigned int delay;
     NVIC_Configuration();
-
-    // Tick every 1 ms
-    if (SysTick_Config(SystemCoreClock / 1000))  while (1);
-    delay(1000);
 
     LED_Init2();
     int j;
@@ -153,9 +121,8 @@ int main(void)
     usart1_print("Hello World!\n\r");
 
     printf("Checking Radio\n\r");
-    rda5807_init();
-
-//    i2c_search_bus();
+    setup_delay_timer(TIM4);
+    rda5807_init(TIM4);
 
     u8 tx[10];
     tx[0] = 0x00;
@@ -176,7 +143,9 @@ int main(void)
     stations->head = 0;
 
     radio *s1 = add_radio("Trojka", 994);
+    add_radio("Dwojka", 1020);
     radio *s2 = add_radio("Jedynka", 894);
+    add_radio("Czworka", 972);
     radio *s3 = add_radio("RMF FM", 960);
     radio *s4 = add_radio("Radio Krakow", 1016);
     radio *s5 = add_radio("Radio ZET", 1041);
@@ -184,6 +153,15 @@ int main(void)
     radio *s7 = add_radio("Antyradio", 1013);
     radio *s8 = add_radio("Radio Wawa", 888);
     radio *s9 = add_radio("Rock radio", 1038);
+    add_radio("RMF Classic", 878);
+    add_radio("RMF Maxxx", 967);
+    add_radio("Radiofonia", 1005);
+    add_radio("Radio ZET Chilli", 1010);
+    add_radio("Radio ZET Gold", 937);
+    add_radio("Eska Krakow", 977);
+    add_radio("Radio WAWA", 888);
+    add_radio("Radio VOX FM", 107);
+    add_radio("Radio Plus Krakow", 994);
     print_list(stations);
 
     shortcuts_list[0].hotkey = 1;
@@ -212,14 +190,14 @@ int main(void)
     settings.poweroff = false;
 
     change_station(s1);
-//    rda5807_set_mute(true);
+    rda5807_set_mute(true);
 
     while (1) {
-        for (j = 0; j < 2000000; ++j) {}
+        delay_ms(TIM4, 100);
         GPIO_WriteBit(GPIOA, GPIO_Pin_1, Bit_SET);
-        for (j = 0; j < 2000000; ++j) {}
+        delay_ms(TIM4, 900);
         GPIO_WriteBit(GPIOA, GPIO_Pin_1, Bit_RESET);
-
+//        __WFI();
     }
 }
 

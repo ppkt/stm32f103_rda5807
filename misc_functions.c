@@ -85,7 +85,8 @@ radio* add_radio(char* name, u16 frequency) {
     if (!new_station) while(1); // Out of memory
 
     new_station->frequency = frequency;
-    new_station->name = strdup(name);
+    // we have to discard 2 last chars (for Mute / Bass boost indicators)
+    new_station->name = strndup(name, 14);
 
     printf("Adding: %s\n\r", name);
 
@@ -141,11 +142,11 @@ void print_station_name(radio *station) {
     hd44780_cmd(0x01); // clear display, go to 0x0
     hd44780_print(station->name);
 
-    static char frequency[20];
+    static char frequency[16];
     static u8 main_, rest;
     main_ = station->frequency / 10;
     rest = station->frequency - main_ * 10;
-    sprintf(frequency, "%3d.%d MHz", main_, rest);
+    sprintf(frequency, "%3d.%d0 MHz", main_, rest);
     hd44780_go_to_line(1);
     hd44780_print(frequency);
 
@@ -197,6 +198,5 @@ void poweroff() {
         rda5807_set_mute(false);
         hd44780_cmd(0x0C);
         hd44780_backlight(true);
-//        print_station_name(stations->current);
     }
 }

@@ -156,20 +156,22 @@ void print_station_name(radio *station) {
 void print_settings() {
     static char volume[2];
 
-    hd44780_go_to(0, 14);
+    hd44780_go_to(1, 11);
+
+    hd44780_char(0);
     if (settings.mute) {
-        hd44780_print("X");
-    } else {
         hd44780_print(" ");
+    } else {
+        hd44780_char(1);
     }
 
     if (settings.boost) {
-        hd44780_print("B");
+        hd44780_char(2);
     } else {
-        hd44780_print(" ");
+        hd44780_print("B");
     }
 
-    hd44780_go_to(1, 14);
+//    hd44780_go_to(1, 14);
     sprintf(volume, "%2d", settings.volume);
     hd44780_print(volume);
 }
@@ -199,4 +201,42 @@ void poweroff() {
         hd44780_cmd(0x0C);
         hd44780_backlight(true);
     }
+}
+
+void setup_display(void) {
+    u8 volume[] = {
+	0b00001,
+	0b00011,
+	0b01111,
+	0b01111,
+	0b01111,
+	0b00011,
+	0b00001,
+        0b00000
+    };
+
+    u8 off[8] = {
+        0b01000,
+        0b10000,
+        0b00000,
+        0b11000,
+        0b00000,
+        0b10000,
+        0b01000,
+        0b00000
+    };
+
+    u8 boost[8] = {
+        0b11110,
+        0b11011,
+        0b11011,
+        0b11110,
+        0b11011,
+        0b11011,
+        0b11110
+    };
+
+    hd44780_cgram_write(0, volume);
+    hd44780_cgram_write(1, off);
+    hd44780_cgram_write(2, boost);
 }

@@ -109,7 +109,6 @@ int main(void)
     NVIC_Configuration();
 
     LED_Init2();
-    int j;
 
     USART1_Init(9600);
     I2C_LowLevel_Init(I2C1);
@@ -189,6 +188,7 @@ int main(void)
     settings.mute = false;
     settings.poweroff = false;
 
+    setup_display();
     change_station(s1);
     rda5807_set_mute(true);
 

@@ -240,3 +240,54 @@ void setup_display(void) {
     hd44780_cgram_write(1, off);
     hd44780_cgram_write(2, boost);
 }
+
+void populate_stations(void) {
+    stations = malloc(sizeof(radio_list));
+    stations->current = 0;
+    stations->tail = 0;
+    stations->head = 0;
+
+    radio *s1 = add_radio("Trojka", 994);
+    add_radio("Dwojka", 1020);
+    radio *s2 = add_radio("Jedynka", 894);
+    add_radio("Czworka", 972);
+    radio *s3 = add_radio("RMF FM", 960);
+    radio *s4 = add_radio("Radio Krakow", 1016);
+    radio *s5 = add_radio("Radio ZET", 1041);
+    radio *s6 = add_radio("Radio PLUS", 1061);
+    radio *s7 = add_radio("Antyradio", 1013);
+    radio *s8 = add_radio("Radio Wawa", 888);
+    radio *s9 = add_radio("Rock radio", 1038);
+    add_radio("RMF Classic", 878);
+    add_radio("RMF Maxxx", 967);
+    add_radio("Radiofonia", 1005);
+    add_radio("Radio ZET Chilli", 1010);
+    add_radio("Radio ZET Gold", 937);
+    add_radio("Eska Krakow", 977);
+    add_radio("Radio WAWA", 888);
+    add_radio("Radio VOX FM", 107);
+    add_radio("Radio Plus Krakow", 994);
+//    print_list(stations);
+
+    shortcuts_list[0].hotkey = 1;
+    shortcuts_list[0].station = s1;
+    shortcuts_list[1].hotkey = 2;
+    shortcuts_list[1].station = s2;
+    shortcuts_list[2].hotkey = 3;
+    shortcuts_list[2].station = s3;
+    shortcuts_list[3].hotkey = 4;
+    shortcuts_list[3].station = s4;
+    shortcuts_list[4].hotkey = 5;
+    shortcuts_list[4].station = s5;
+    shortcuts_list[5].hotkey = 6;
+    shortcuts_list[5].station = s6;
+    shortcuts_list[6].hotkey = 7;
+    shortcuts_list[6].station = s7;
+    shortcuts_list[7].hotkey = 8;
+    shortcuts_list[7].station = s8;
+    shortcuts_list[8].hotkey = 9;
+    shortcuts_list[8].station = s9;
+
+    change_station(s1);
+}
+

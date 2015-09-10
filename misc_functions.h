@@ -40,6 +40,7 @@ radio_list *stations;
 radio* add_radio(char* name, u16 frequency);
 void add_digit(u8 command);
 
+void populate_stations(void);
 void setup_display(void);
 void print_station_name(radio *station);
 void print_settings();

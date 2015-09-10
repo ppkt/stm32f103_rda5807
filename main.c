@@ -10,6 +10,7 @@
 #include "common_lib/usart.h"
 #include "common_lib/i2c_dma.h"
 
+#include "device_lib/at24c64.h"
 #include "device_lib/rda5807.h"
 #include "device_lib/hd44780-i2c.h"
 #include "device_lib/ir.h"
@@ -136,23 +137,24 @@ int main(void)
     TIM_Init();
     IR_Init();
 
+    setup_delay_timer(TIM4);
+
+    uint16_t address = 0x0000;
+    uint8_t tx[3], rx[3];
+    tx[0] = 0xAB;
+    tx[1] = 0xCD;
+    tx[2] = 0xEF;
+    at24c64_write_bytes(address, tx, 3);
+    delay_ms(TIM4, 10);
+    at24c64_read_bytes(address, rx, 3);
+
+
     ir_nec_init(GPIO_Pin_10, GPIOB);
 
     usart1_print("Hello World!\n\r");
 
     printf("Checking Radio\n\r");
-    setup_delay_timer(TIM4);
     rda5807_init(TIM4);
-
-    u8 tx[10];
-    tx[0] = 0x00;
-    tx[1] = 0x00;
-    tx[2] = 0xAA;
-//    I2C_Master_BufferWrite(I2C1, tx, 3, Polling, 0x50 << 1);
-
-
-//    I2C_Master_BufferWrite(I2C1, tx, 2, DMA, 0x50 << 1);
-    I2C_Master_BufferRead(I2C1, tx, 1, Polling, 0x50 << 1);
 
     hd44780_init(TIM3);
     hd44780_print("Radio");

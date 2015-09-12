@@ -11,7 +11,7 @@
 
 typedef struct radio {
     char *name;
-    unsigned int frequency;
+    uint16_t frequency;
     struct radio *next;
     struct radio *prev;
 } radio;
@@ -30,6 +30,8 @@ typedef struct {
 
 shortcut shortcuts_list[9];
 
+u8 function_timeout;
+
 typedef struct {
     radio *head;
     radio *tail;
@@ -42,7 +44,7 @@ radio* add_radio(char* name, u16 frequency);
 void add_digit(u8 command);
 
 void populate_stations(void);
-void setup_display(void);
+void add_custom_characters(void);
 void print_station_name(radio *station);
 void print_settings();
 void print_list(radio_list *list);

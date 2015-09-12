@@ -124,75 +124,61 @@ void TIM_Init() {
     TIM_Cmd(TIM2, ENABLE);
 }
 
-void _low_power(void) {
-    GPIO_InitTypeDef GPIO_InitStructure;
-    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA | RCC_APB2Periph_GPIOB |
-                           RCC_APB2Periph_GPIOC | RCC_APB2Periph_GPIOD |
-                           RCC_APB2Periph_GPIOE, ENABLE);
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_All;
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
-    GPIO_Init(GPIOA, &GPIO_InitStructure);
-    GPIO_Init(GPIOB, &GPIO_InitStructure);
-    GPIO_Init(GPIOC, &GPIO_InitStructure);
-    GPIO_Init(GPIOD, &GPIO_InitStructure);
-    GPIO_Init(GPIOE, &GPIO_InitStructure);
-
-    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA | RCC_APB2Periph_GPIOB |
-                           RCC_APB2Periph_GPIOC | RCC_APB2Periph_GPIOD |
-                           RCC_APB2Periph_GPIOE, DISABLE);
-
-    RCC_APB1PeriphClockCmd(RCC_APB1Periph_PWR | RCC_APB1Periph_BKP, ENABLE);
-}
-
 int main(void)
 {
+    // Start Independent Watchdog
     iwdg_setup();
 
-    _low_power();
-
+    // Configure NVIC
     NVIC_Configuration();
 
+    // Setup LED on board
     LED_Init2();
 
+    // Systicks every 1 second
+    if (SysTick_Config(SystemCoreClock / 2)) { while (1); }
+
+    // Setup UART
     USART1_Init(9600);
-    I2C_LowLevel_Init(I2C1);
-    TIM_Init();
-    IR_Init();
-
-    setup_delay_timer(TIM4);
-
-    ir_nec_init(GPIO_Pin_10, GPIOB);
-
     usart1_print("Hello World!\n\r");
 
+    // Setup I2C
+    I2C_LowLevel_Init(I2C1);
+
+    // Setup Timers and IR
+    TIM_Init();
+    IR_Init();
+    setup_delay_timer(TIM4);
+    ir_nec_init(GPIO_Pin_10, GPIOB);
+
+    // Setup FM radio module
     printf("Checking Radio\n\r");
     rda5807_init(TIM4);
     IWDG_ReloadCounter();
 
-    hd44780_init(TIM3);
+    // Setup HD44780 I2C display
+    hd44780_init(TIM4);
     hd44780_print("Radio");
+    add_custom_characters();
 
-    settings.volume = 15;
-    settings.boost = false;
-    settings.mute = false;
-    settings.poweroff = false;
-
+    // Add predefined radio stations
     populate_stations();
-    setup_display();
 
-    IWDG_ReloadCounter();
-
+    // Load settings from EEPROM
     load_settings();
-//    rda5807_set_mute(true);
 
     while (1) {
-//        delay_ms(TIM4, 100);
-//        GPIO_WriteBit(GPIOA, GPIO_Pin_1, Bit_SET);
-//        delay_ms(TIM4, 900);
-//        GPIO_WriteBit(GPIOA, GPIO_Pin_1, Bit_RESET);
-
+        // Trigger watchdog and enter deep sleep mode to save power
         IWDG_ReloadCounter();
         __WFI();
+    }
+}
+
+void SysTick_Handler(void) {
+    GPIO_ToggleBit(GPIOA, GPIO_Pin_1);
+    if (function_timeout++ == 10) {
+        // Turn off display
+        hd44780_backlight(false);
     }
 }
 
@@ -205,6 +191,7 @@ void TIM2_IRQHandler()
         ir_nec_reset_transmission();
     }
 }
+
 
 // Handle software interrupt (after decoding command from IR, execute function)
 void EXTI1_IRQHandler(void)

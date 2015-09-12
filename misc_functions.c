@@ -1,11 +1,14 @@
 #include "misc_functions.h"
 
 void remote_function(u8 command) {
+    // If poweroff, respond only on wakeup button, ignore empty commands
     if ((settings.poweroff && command != 175)
             || command == 0)
         return;
 
     printf("%d\r\n", command);
+    function_timeout = 0;
+    hd44780_backlight(true);
 
     switch(command) {
         case 47: // Up arrow
@@ -27,7 +30,8 @@ void remote_function(u8 command) {
             print_settings();
             break;
         case 199: // Search
-            settings.boost = rda5807_toggle_bass_boost();
+            settings.boost = !settings.boost;
+            rda5807_set_bass_boost(settings.boost);
             print_settings();
             break;
         case 7: // Next song
@@ -44,6 +48,8 @@ void remote_function(u8 command) {
             break;
         case 175: // Poweroff
             poweroff();
+            break;
+        case 125: // Exit
             break;
         case 127: // 1
             change_station(shortcuts_list[0].station);
@@ -86,8 +92,7 @@ radio* add_radio(char* name, u16 frequency) {
     if (!new_station) while(1); // Out of memory
 
     new_station->frequency = frequency;
-    // we have to discard 2 last chars (for Mute / Bass boost indicators)
-    new_station->name = strndup(name, 14);
+    new_station->name = strndup(name, 16);
 
     printf("Adding: %s\n\r", name);
 
@@ -172,7 +177,6 @@ void print_settings() {
         hd44780_print("B");
     }
 
-//    hd44780_go_to(1, 14);
     sprintf(volume, "%2d", settings.volume);
     hd44780_print(volume);
 }
@@ -185,7 +189,7 @@ void change_station(radio *station) {
 void print_list(radio_list *list) {
     radio *ptr = list->head;
     while (ptr) {
-        printf("%x %s %d %x %x\r\n", ptr, ptr->name, ptr->frequency, ptr->prev, ptr->next);
+        printf("%p %s %d %p %p\r\n", ptr, ptr->name, ptr->frequency, ptr->prev, ptr->next);
         ptr = ptr->next;
     }
 }
@@ -204,7 +208,8 @@ void poweroff() {
     }
 }
 
-void setup_display(void) {
+void add_custom_characters(void) {
+    // Volume font, pt. 1
     u8 volume[] = {
 	0b00001,
 	0b00011,
@@ -216,6 +221,7 @@ void setup_display(void) {
         0b00000
     };
 
+    // Volume font, pt. 2
     u8 off[8] = {
         0b01000,
         0b10000,
@@ -227,6 +233,7 @@ void setup_display(void) {
         0b00000
     };
 
+    // Boost icon
     u8 boost[8] = {
         0b11110,
         0b11011,
@@ -249,27 +256,33 @@ void populate_stations(void) {
     stations->head = 0;
 
     radio *s1 = add_radio("Trojka", 994);
-    add_radio("Dwojka", 1020);
     radio *s2 = add_radio("Jedynka", 894);
-    add_radio("Czworka", 972);
     radio *s3 = add_radio("RMF FM", 960);
     radio *s4 = add_radio("Radio Krakow", 1016);
     radio *s5 = add_radio("Radio ZET", 1041);
     radio *s6 = add_radio("Radio PLUS", 1061);
     radio *s7 = add_radio("Antyradio", 1013);
     radio *s8 = add_radio("Radio Wawa", 888);
-    radio *s9 = add_radio("Rock radio", 1038);
+    radio *s9 = add_radio("Rock Radio", 1038);
+    add_radio("Dwojka", 1020);
+    add_radio("Czworka", 972);
     add_radio("RMF Classic", 878);
     add_radio("RMF Maxxx", 967);
     add_radio("Radiofonia", 1005);
     add_radio("Radio ZET Chilli", 1010);
     add_radio("Radio ZET Gold", 937);
     add_radio("Eska Krakow", 977);
-    add_radio("Radio WAWA", 888);
-    add_radio("Radio VOX FM", 107);
-    add_radio("Radio Plus Krakow", 994);
+    add_radio("Radio VOX FM", 1070);
+    add_radio("Radio Plus Krakow", 1061);
+    add_radio("Radio TOK FM", 1029);
+    add_radio("Zlote Przeboje Wanda", 925);
+    add_radio("Radio Muzo FM", 1049);
+    add_radio("Radio Bajka", 952);
+    add_radio("Radio KRK FM", 1024);
+    add_radio("Radio Maryja", 906);
 //    print_list(stations);
 
+    // Shortcuts are available from remote
     shortcuts_list[0].hotkey = 1;
     shortcuts_list[0].station = s1;
     shortcuts_list[1].hotkey = 2;
@@ -288,15 +301,14 @@ void populate_stations(void) {
     shortcuts_list[7].station = s8;
     shortcuts_list[8].hotkey = 9;
     shortcuts_list[8].station = s9;
-
-    change_station(s1);
 }
 
+// Store settings and current FM station on EEPROM
 void save_settings(void) {
     uint8_t p_settings = settings.boost << 7 | settings.mute << 6
                                            | settings.poweroff << 5 | settings.volume;
-    uint8_t p_current_station_h = stations->current->frequency << 8;
-    uint8_t p_current_station_l = stations->current->frequency & 0x00FF;
+    uint8_t p_current_station_h = stations->current->frequency >> 8;
+    uint8_t p_current_station_l = stations->current->frequency;
 
     uint8_t tx[3];
     tx[0] = p_settings;
@@ -306,6 +318,7 @@ void save_settings(void) {
     at24c64_write_bytes(0x0000, tx, 3);
 }
 
+// Load settings from EEPROM and set previous station
 void load_settings(void) {
     uint8_t rx[3];
     at24c64_read_bytes(0x0000, rx, 3);
@@ -314,6 +327,23 @@ void load_settings(void) {
     settings.poweroff = rx[0] >> 5 & 0x01;
     settings.volume = rx[0] & 0x0F;
 
-    // TODO: Add restoring settings
-    print_settings();
+    uint16_t frequency = rx[1] << 8 | rx[2];
+
+    rda5807_set_bass_boost(settings.boost);
+    rda5807_set_mute(settings.mute);
+    rda5807_set_volume(settings.volume);
+
+    radio *new_station = stations->head;
+    while (new_station) {
+        if (new_station->frequency == frequency) {
+            break;
+        }
+        new_station = new_station->next;
+    }
+
+    if (new_station) {
+        change_station(new_station);
+    } else {
+        change_station(shortcuts_list[0].station);
+    }
 }

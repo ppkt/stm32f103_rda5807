@@ -78,6 +78,7 @@ void remote_function(u8 command) {
             break;
     }
 
+    save_settings();
 }
 
 radio* add_radio(char* name, u16 frequency) {
@@ -291,3 +292,28 @@ void populate_stations(void) {
     change_station(s1);
 }
 
+void save_settings(void) {
+    uint8_t p_settings = settings.boost << 7 | settings.mute << 6
+                                           | settings.poweroff << 5 | settings.volume;
+    uint8_t p_current_station_h = stations->current->frequency << 8;
+    uint8_t p_current_station_l = stations->current->frequency & 0x00FF;
+
+    uint8_t tx[3];
+    tx[0] = p_settings;
+    tx[1] = p_current_station_h;
+    tx[2] = p_current_station_l;
+
+    at24c64_write_bytes(0x0000, tx, 3);
+}
+
+void load_settings(void) {
+    uint8_t rx[3];
+    at24c64_read_bytes(0x0000, rx, 3);
+    settings.boost = rx[0] >> 7 & 0x01;
+    settings.mute = rx[0] >> 6 & 0x01;
+    settings.poweroff = rx[0] >> 5 & 0x01;
+    settings.volume = rx[0] & 0x0F;
+
+    // TODO: Add restoring settings
+    print_settings();
+}

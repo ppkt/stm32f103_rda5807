@@ -3,6 +3,7 @@
 #include <stm32f10x_rcc.h>
 #include <stm32f10x_exti.h>
 #include <stm32f10x_iwdg.h>
+#include <stm32f10x_pwr.h>
 
 #include "misc_functions.h"
 
@@ -63,7 +64,7 @@ void IR_Init() {
 
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
     GPIO_InitStructure.GPIO_Pin = GPIO_Pin_10;
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
     GPIO_Init(GPIOB, &GPIO_InitStructure);
 
     // Enable clock and its interrupts
@@ -114,7 +115,7 @@ void TIM_Init() {
 
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_TIM1, ENABLE);
     TIM_InitStructure.TIM_CounterMode = TIM_CounterMode_Up;
-    TIM_InitStructure.TIM_Prescaler = 72 - 1;
+    TIM_InitStructure.TIM_Prescaler = SystemCoreClock / 1000000 - 1;
     TIM_InitStructure.TIM_Period = 10000 - 1; // Update event every 10000 us / 10 ms
     TIM_InitStructure.TIM_ClockDivision = TIM_CKD_DIV1;
     TIM_InitStructure.TIM_RepetitionCounter = 0;
@@ -123,10 +124,31 @@ void TIM_Init() {
     TIM_Cmd(TIM2, ENABLE);
 }
 
+void _low_power(void) {
+    GPIO_InitTypeDef GPIO_InitStructure;
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA | RCC_APB2Periph_GPIOB |
+                           RCC_APB2Periph_GPIOC | RCC_APB2Periph_GPIOD |
+                           RCC_APB2Periph_GPIOE, ENABLE);
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_All;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
+    GPIO_Init(GPIOA, &GPIO_InitStructure);
+    GPIO_Init(GPIOB, &GPIO_InitStructure);
+    GPIO_Init(GPIOC, &GPIO_InitStructure);
+    GPIO_Init(GPIOD, &GPIO_InitStructure);
+    GPIO_Init(GPIOE, &GPIO_InitStructure);
+
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA | RCC_APB2Periph_GPIOB |
+                           RCC_APB2Periph_GPIOC | RCC_APB2Periph_GPIOD |
+                           RCC_APB2Periph_GPIOE, DISABLE);
+
+    RCC_APB1PeriphClockCmd(RCC_APB1Periph_PWR | RCC_APB1Periph_BKP, ENABLE);
+}
 
 int main(void)
 {
     iwdg_setup();
+
+    _low_power();
 
     NVIC_Configuration();
 
@@ -139,22 +161,13 @@ int main(void)
 
     setup_delay_timer(TIM4);
 
-    uint16_t address = 0x0000;
-    uint8_t tx[3], rx[3];
-    tx[0] = 0xAB;
-    tx[1] = 0xCD;
-    tx[2] = 0xEF;
-    at24c64_write_bytes(address, tx, 3);
-    delay_ms(TIM4, 10);
-    at24c64_read_bytes(address, rx, 3);
-
-
     ir_nec_init(GPIO_Pin_10, GPIOB);
 
     usart1_print("Hello World!\n\r");
 
     printf("Checking Radio\n\r");
     rda5807_init(TIM4);
+    IWDG_ReloadCounter();
 
     hd44780_init(TIM3);
     hd44780_print("Radio");
@@ -166,15 +179,20 @@ int main(void)
 
     populate_stations();
     setup_display();
-    rda5807_set_mute(true);
+
+    IWDG_ReloadCounter();
+
+    load_settings();
+//    rda5807_set_mute(true);
 
     while (1) {
 //        delay_ms(TIM4, 100);
 //        GPIO_WriteBit(GPIOA, GPIO_Pin_1, Bit_SET);
 //        delay_ms(TIM4, 900);
 //        GPIO_WriteBit(GPIOA, GPIO_Pin_1, Bit_RESET);
-        __WFI();
+
         IWDG_ReloadCounter();
+        __WFI();
     }
 }
 

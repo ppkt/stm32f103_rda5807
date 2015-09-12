@@ -5,6 +5,7 @@
 #include "string.h"
 #include "stdlib.h"
 
+#include "device_lib/at24c64.h"
 #include "device_lib/rda5807.h"
 #include "device_lib/hd44780-i2c.h"
 
@@ -49,6 +50,9 @@ void change_station(radio *station);
 void poweroff();
 
 void remote_function(u8 command);
+
+void save_settings(void);
+void load_settings(void);
 
 
 #endif // __MISC_FUNCTIONS_H__

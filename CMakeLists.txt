@@ -15,6 +15,7 @@ INCLUDE_DIRECTORIES(
 SET(PROJECT_SOURCES
     main.c
     misc_functions.c
+    stm32f10x_it.c
 
     common_lib/utils.c
     common_lib/usart.c

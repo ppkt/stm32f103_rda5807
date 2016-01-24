@@ -4,6 +4,7 @@
 
 #include "string.h"
 #include "stdlib.h"
+#include "time.h"
 
 #include "device_lib/at24c64.h"
 #include "device_lib/rda5807.h"
@@ -56,5 +57,7 @@ void remote_function(u8 command);
 void save_settings(void);
 void load_settings(void);
 
+void print_time(void);
+void print_idle_time(void);
 
 #endif // __MISC_FUNCTIONS_H__

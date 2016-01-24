@@ -1,5 +1,8 @@
 #include "misc_functions.h"
 
+extern time_t _current_raw_time;
+extern bool _time_set;
+
 void remote_function(u8 command) {
     // If poweroff, respond only on wakeup button, ignore empty commands
     if ((settings.poweroff && command != 175)
@@ -92,6 +95,8 @@ void remote_function(u8 command) {
     save_settings();
 }
 
+// Add radio station to list of stations. Station inserted according to its
+// frequency to keep list sorted
 radio* add_radio(char* name, u16 frequency) {
     radio *new_station = malloc(sizeof(radio));
     if (!new_station) while(1); // Out of memory
@@ -149,6 +154,7 @@ radio* add_radio(char* name, u16 frequency) {
     return new_station;
 }
 
+// Print station name on LCD display
 void print_station_name(radio *station) {
     hd44780_cmd(0x01); // clear display, go to 0x0
     hd44780_print(station->name);
@@ -164,6 +170,7 @@ void print_station_name(radio *station) {
     print_settings();
 }
 
+// Print current settings on LCD display
 void print_settings() {
     static char volume[2];
 
@@ -186,12 +193,14 @@ void print_settings() {
     hd44780_print(volume);
 }
 
+// Change current active station
 void change_station(radio *station) {
     if (!settings.poweroff)
         print_station_name(station);
     rda5807_set_frequency(station->frequency);
 }
 
+// Print list of stations (for debugging purposes)
 void print_list(radio_list *list) {
     radio *ptr = list->head;
     while (ptr) {
@@ -200,6 +209,7 @@ void print_list(radio_list *list) {
     }
 }
 
+// "Power off" device
 void poweroff() {
     settings.poweroff = !settings.poweroff;
 
@@ -216,6 +226,7 @@ void poweroff() {
     }
 }
 
+// Add custom characters to LCD display memory in order to draw them
 void add_custom_characters(void) {
     // Volume font, pt. 1
     u8 volume[] = {
@@ -257,6 +268,7 @@ void add_custom_characters(void) {
     hd44780_cgram_write(2, boost);
 }
 
+// Create list of stations and assign shortcuts to some of them
 void populate_stations(void) {
     stations = malloc(sizeof(radio_list));
     stations->current = 0;
@@ -359,5 +371,31 @@ void load_settings(void) {
     } else {
         change_station(shortcuts_list[0].station);
     }
+
+}
+
+// Prints date and time when device is idle (power off)
+void print_idle_time(void) {
+    static char time_buffer[16];
+    struct tm* current_time = gmtime(&_current_raw_time);
+    hd44780_go_to_line(0);
+    strftime(time_buffer, 16, "   %d.%m.%Y", current_time);
+    hd44780_print(time_buffer);
+    hd44780_go_to_line(1);
+    strftime(time_buffer, 16, "     %R", current_time);
+    hd44780_print(time_buffer);
+}
+
+// Prints time only when device is inactive (power on, but there have been some
+// time since last action (determined by `function_timeout` variable
+void print_time(void) {
+    static char time_buffer[11];
+
+    hd44780_go_to_line(1);
+
+    struct tm* current_time = gmtime(&_current_raw_time);
+
+    strftime(time_buffer, 11, " %T ", current_time);
+    hd44780_print(time_buffer);
 
 }

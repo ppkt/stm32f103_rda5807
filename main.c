@@ -1,3 +1,5 @@
+#include <time.h>
+
 #include <stm32f10x.h>
 #include <stm32f10x_gpio.h>
 #include <stm32f10x_rcc.h>
@@ -12,9 +14,28 @@
 #include "common_lib/i2c_dma.h"
 
 #include "device_lib/at24c64.h"
+#include "device_lib/esp8266.h"
 #include "device_lib/rda5807.h"
 #include "device_lib/hd44780-i2c.h"
 #include "device_lib/ir.h"
+
+static time_t _current_raw_time = 0;
+static bool _time_set = false;
+
+// Callback function called after receiving packet from WiFi module (+IPD)
+void incoming_packet_handler(char* string, uint8_t size) {
+    if (_time_set) {
+        return;
+    }
+
+    LED_toggle(2);
+
+    _time_set = true;
+
+    // add one second, to compensate missing "tick"
+    RTC_SetCounter(atoi(string) + 1);
+    RTC_WaitForLastTask();
+}
 
 void NVIC_Configuration(void)
 {
@@ -42,7 +63,7 @@ void iwdg_setup() {
     IWDG_WriteAccessCmd(IWDG_WriteAccess_Enable);
 
     // IWDG counter clock: LSI / 256 -> max timeout = 26 s
-    IWDG_SetPrescaler(IWDG_Prescaler_256);
+    IWDG_SetPrescaler(IWDG_Prescaler_128);
 
     // Set counter reload value to obtain 3000 ms IWDG timeout
     // 40000 -> 40kHz LSI oscillator, but it might varies between 30 and 60 kHz
@@ -135,24 +156,34 @@ int main(void)
     // Setup LED on board
     LED_Init2();
 
-    // Systicks every 1 second
-    if (SysTick_Config(SystemCoreClock / 2)) { while (1); }
+    IWDG_ReloadCounter();
+    // Setup RTC
+    rtc_setup();
+    IWDG_ReloadCounter();
 
     // Setup UART
-    USART1_Init(9600);
-    usart1_print("Hello World!\n\r");
 
+    USART1_Init(115200);
     // Setup I2C
     I2C_LowLevel_Init(I2C1);
 
     // Setup Timers and IR
     TIM_Init();
+
     IR_Init();
     setup_delay_timer(TIM4);
     ir_nec_init(GPIO_Pin_10, GPIOB);
 
-    // Setup FM radio module
-    printf("Checking Radio\n\r");
+    // Setup Wifi module (used for clock sync)
+    IWDG_ReloadCounter();
+    esp8266_init();
+    // Open local UDP port (5505) for time sync
+    esp8266_close_connection();
+    esp8266_establish_two_way_connection(
+        ESP8266_PROTOCOL_UDP, "0.0.0.0", 5555, 5505, 0,
+        &incoming_packet_handler);
+
+    // Setup FM radio module;
     rda5807_init(TIM4);
     IWDG_ReloadCounter();
 
@@ -160,6 +191,9 @@ int main(void)
     hd44780_init(TIM4);
     hd44780_print("Radio");
     add_custom_characters();
+
+    // Systicks every 1 second
+    if (SysTick_Config(SysTick_LOAD_RELOAD_Msk)) { while (1); }
 
     // Add predefined radio stations
     populate_stations();
@@ -174,12 +208,41 @@ int main(void)
     }
 }
 
+// Prints date and time when device is idle (power off)
+void print_idle_time() {
+    static char time_buffer[16];
+    struct tm* current_time = gmtime(&_current_raw_time);
+    hd44780_go_to_line(0);
+    strftime(time_buffer, 16, "   %d.%m.%Y", current_time);
+    hd44780_print(time_buffer);
+    hd44780_go_to_line(1);
+    strftime(time_buffer, 16, "     %R", current_time);
+    hd44780_print(time_buffer);
+}
+
+// Prints time only when device is inactive (power on, but there have been some
+// time since last action (determined by `function_timeout` variable
+void print_time() {
+    static char time_buffer[11];
+
+    hd44780_go_to_line(1);
+
+    struct tm* current_time = gmtime(&_current_raw_time);
+
+    strftime(time_buffer, 11, " %T ", current_time);
+    hd44780_print(time_buffer);
+
+}
+
 void SysTick_Handler(void) {
-    GPIO_ToggleBit(GPIOA, GPIO_Pin_1);
-    if (function_timeout++ == 10) {
-        // Turn off display
-        hd44780_backlight(false);
+    if (function_timeout >= 20) {
+        if (function_timeout == 20) {
+            // Turn off display
+            hd44780_backlight(false);
+        }
     }
+    // Saturated add to avoid overflow
+    function_timeout = sadd8(function_timeout, 1);
 }
 
 void TIM2_IRQHandler()
@@ -217,3 +280,52 @@ void EXTI15_10_IRQHandler(void)
         EXTI_ClearITPendingBit(EXTI_Line10);
     }
 }
+
+// Handle USART interrupt (data from WiFi module)
+void USART1_IRQHandler(void)
+{
+    static uint8_t index = 0;
+    static char buffer[80];
+
+    if (USART_GetITStatus(USART1, USART_IT_RXNE) != RESET) {
+        char c = USART_ReceiveData(USART1);
+
+        buffer[index] = c;
+        index = (index + 1) % sizeof(buffer);
+
+        if (c == '\n') {
+            // if line has more than 2 chars (i.e. \r\n sequence) strip them
+            // and send to esp8266 library
+            if (index > 2)
+                esp8266_new_line(strndup(buffer, index - 2));
+
+
+            buffer[index] = 0;
+            index = 0;
+        }
+    }
+}
+
+// Handle RTC interrupts (ticks and alarms)
+void RTC_IRQHandler(void)
+{
+    if(RTC_GetITStatus(RTC_IT_SEC) != RESET)
+    {
+        if (_time_set) {
+            _current_raw_time = RTC_GetCounter();
+
+            // Display time
+            if (settings.poweroff)
+                print_idle_time();
+            else if (function_timeout > 20)
+                print_time();
+        }
+
+//        LED_toggle(2);
+        // Clear Interrupt Bit
+        RTC_ClearITPendingBit(RTC_IT_SEC);
+        // Wait for RTC Write Operations
+        RTC_WaitForLastTask();
+    }
+}
+

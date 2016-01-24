@@ -19,11 +19,13 @@ SET(PROJECT_SOURCES
     common_lib/utils.c
     common_lib/usart.c
     common_lib/i2c_dma.c
+    common_lib/interrupts.c
 
     device_lib/rda5807.c
     device_lib/hd44780-i2c.c
     device_lib/ir.c
     device_lib/at24c64.c
+    device_lib/esp8266.c
 
     stdio/printf.c
     stdio/syscalls.c

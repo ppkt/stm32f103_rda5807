@@ -1,7 +1,9 @@
 #include "misc_functions.h"
 
 extern time_t _current_raw_time;
+extern struct tm* _current_time;
 extern bool _time_set;
+
 
 void remote_function(u8 command) {
     // If poweroff, respond only on wakeup button, ignore empty commands
@@ -224,6 +226,7 @@ void poweroff() {
         print_station_name(stations->current);
         hd44780_backlight(true);
     }
+    update_time();
 }
 
 // Add custom characters to LCD display memory in order to draw them
@@ -375,27 +378,47 @@ void load_settings(void) {
 }
 
 // Prints date and time when device is idle (power off)
-void print_idle_time(void) {
+void _print_idle_time(void) {
+    if (!_time_set)
+        return;
+
+    hd44780_cmd(0x01);
     static char time_buffer[16];
-    struct tm* current_time = gmtime(&_current_raw_time);
     hd44780_go_to_line(0);
-    strftime(time_buffer, 16, "   %d.%m.%Y", current_time);
+    strftime(time_buffer, 16, "   %d.%m.%Y", _current_time);
     hd44780_print(time_buffer);
     hd44780_go_to_line(1);
-    strftime(time_buffer, 16, "     %R", current_time);
+    strftime(time_buffer, 16, "     %R", _current_time);
     hd44780_print(time_buffer);
 }
 
 // Prints time only when device is inactive (power on, but there have been some
 // time since last action (determined by `function_timeout` variable
-void print_time(void) {
+void _print_time(void) {
+    if (!_time_set)
+        return;
+
     static char time_buffer[11];
 
     hd44780_go_to_line(1);
 
-    struct tm* current_time = gmtime(&_current_raw_time);
-
-    strftime(time_buffer, 11, " %T ", current_time);
+    strftime(time_buffer, 11, "   %R   ", _current_time);
     hd44780_print(time_buffer);
 
+}
+
+void update_time(void) {
+    if (!_time_set)
+        return;
+
+    if (settings.poweroff)
+        _print_idle_time();
+    else if (function_timeout >= 20)
+        _print_time();
+}
+
+void force_update_time(void) {
+    _current_raw_time = RTC_GetCounter();
+    _current_time = gmtime(&_current_raw_time);
+    update_time();
 }

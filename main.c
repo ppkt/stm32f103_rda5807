@@ -21,21 +21,28 @@
 #include "device_lib/ir.h"
 
 time_t _current_raw_time = 0;
+struct tm* _current_time = 0;
 bool _time_set = false;
 
 // Callback function called after receiving packet from WiFi module (+IPD)
 void incoming_packet_handler(char* string, uint8_t size) {
-    if (_time_set) {
-        return;
-    }
+    static time_t remote_time;
 
-    LED_toggle(2);
+    if (_time_set)
+        return;
+
+    remote_time = atoi(string) + 1;
 
     _time_set = true;
 
+    LED_toggle(2);
+
     // add one second, to compensate missing "tick"
-    RTC_SetCounter(atoi(string) + 1);
+    RTC_SetCounter(remote_time);
     RTC_WaitForLastTask();
+
+    force_update_time();
+
 }
 
 void NVIC_Configuration(void)
@@ -160,6 +167,7 @@ int main(void)
     IWDG_ReloadCounter();
     // Setup RTC
     rtc_setup();
+
     IWDG_ReloadCounter();
 
     // Setup UART
@@ -174,15 +182,6 @@ int main(void)
     IR_Init();
     setup_delay_timer(TIM4);
     ir_nec_init(GPIO_Pin_10, GPIOB);
-
-    // Setup Wifi module (used for clock sync)
-    IWDG_ReloadCounter();
-    esp8266_init();
-    // Open local UDP port (5505) for time sync
-    esp8266_close_connection();
-    esp8266_establish_two_way_connection(
-        ESP8266_PROTOCOL_UDP, "0.0.0.0", 5555, 5505, 0,
-        &incoming_packet_handler);
 
     // Setup FM radio module;
     rda5807_init(TIM4);
@@ -201,6 +200,15 @@ int main(void)
 
     // Load settings from EEPROM
     load_settings();
+
+    // Setup Wifi module (used for clock sync)
+    IWDG_ReloadCounter();
+    esp8266_init(TIM4);
+    // Open local UDP port (5505) for time sync
+    esp8266_close_connection();
+    esp8266_establish_two_way_connection(
+        ESP8266_PROTOCOL_UDP, "0.0.0.0", 5555, 5505, 0,
+        &incoming_packet_handler);
 
     while (1) {
         // Trigger watchdog and enter deep sleep mode to save power

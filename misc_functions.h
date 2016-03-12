@@ -57,7 +57,10 @@ void remote_function(u8 command);
 void save_settings(void);
 void load_settings(void);
 
-void print_time(void);
-void print_idle_time(void);
+//void print_time(void);
+//void print_idle_time(void);
+void update_time(void);
+void force_update_time(void);
+
 
 #endif // __MISC_FUNCTIONS_H__

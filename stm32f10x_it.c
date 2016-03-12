@@ -1,14 +1,16 @@
 #include <stm32f10x_it.h>
 
 extern time_t _current_raw_time;
+extern struct tm* _current_time;
 extern bool _time_set;
+extern void incoming_packet_handler(char* string, uint8_t size);
 
 void SysTick_Handler(void) {
-    if (function_timeout >= 20) {
-        if (function_timeout == 20) {
-            // Turn off display
-            hd44780_backlight(false);
-        }
+    if (function_timeout == 20 && !settings.poweroff) {
+        // Turn off display
+        hd44780_backlight(false);
+        // Print current time
+        update_time();
     }
     // Saturated add to avoid overflow
     function_timeout = sadd8(function_timeout, 1);
@@ -78,19 +80,30 @@ void USART1_IRQHandler(void)
 // Handle RTC interrupts (ticks and alarms)
 void RTC_IRQHandler(void)
 {
+    static uint8_t ticks_without_clock = 0;
+
+    // Tick every second
     if(RTC_GetITStatus(RTC_IT_SEC) != RESET)
     {
         if (_time_set) {
+            ticks_without_clock = 0;
             _current_raw_time = RTC_GetCounter();
+            _current_time = gmtime(&_current_raw_time);
 
-            // Display time
-            if (settings.poweroff)
-                print_idle_time();
-            else if (function_timeout > 20)
-                print_time();
+            if (_current_time->tm_sec == 0) {
+                // Update time every minute
+                update_time();
+            }
+            if (_current_time->tm_hour == 0) {
+                // Schedule time sync every hour
+                _time_set = 0;
+            }
+        } else {
+            // Clock not configured
+            ticks_without_clock++;
         }
 
-//        LED_toggle(2);
+        LED_toggle(2);
         // Clear Interrupt Bit
         RTC_ClearITPendingBit(RTC_IT_SEC);
         // Wait for RTC Write Operations
